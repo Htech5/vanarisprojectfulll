@@ -8,6 +8,7 @@ import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { Screen } from '../../components/Screen';
 import { resolveImageUri } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
+import { prepareUpload } from '../../lib/image';
 import { checkPassword } from '../../lib/password';
 import { Theme } from '../../lib/theme';
 import { useTheme } from '../../lib/theme-context';
@@ -40,10 +41,9 @@ export default function Profile() {
     if (result.canceled) return;
     setAvatarUploading(true);
     try {
-      await updateProfile({
-        avatarUri: result.assets[0].uri,
-        avatarMimeType: result.assets[0].mimeType,
-      });
+      const asset = result.assets[0];
+      const prepared = await prepareUpload(asset.uri, asset.width, asset.height);
+      await updateProfile({ avatarUri: prepared.uri, avatarMimeType: prepared.mimeType });
     } catch (err: any) {
       Alert.alert('Could not update photo', err.message ?? 'Something went wrong');
     } finally {

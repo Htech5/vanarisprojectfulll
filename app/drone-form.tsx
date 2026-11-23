@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState, LoadingList } from '../components/RequestState';
 import { api, DroneStatus, resolveImageUri } from '../lib/api';
+import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
 import { useTheme } from '../lib/theme-context';
 import { useFetch } from '../lib/useFetch';
@@ -69,8 +70,10 @@ export default function DroneForm() {
       allowsEditing: true,
     });
     if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-      setNewImage({ uri: result.assets[0].uri, mimeType: result.assets[0].mimeType });
+      const asset = result.assets[0];
+      const prepared = await prepareUpload(asset.uri, asset.width, asset.height);
+      setImageUri(prepared.uri);
+      setNewImage(prepared);
     }
   };
 

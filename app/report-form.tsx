@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState, LoadingList } from '../components/RequestState';
 import { api, resolveImageUri } from '../lib/api';
+import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
 import { useTheme } from '../lib/theme-context';
 import { useFetch } from '../lib/useFetch';
@@ -47,7 +48,15 @@ export default function ReportForm() {
   const titleError = touched && !title.trim() ? 'A short title is required' : null;
   const canSubmit = title.trim().length > 0 && pin != null && !submitting;
 
-  const pickImage = async () => {
+  const applyPickedImage = async (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const prepared = await prepareUpload(asset.uri, asset.width, asset.height);
+    setImageUri(prepared.uri);
+    setNewImage(prepared);
+  };
+
+  const pickFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setError('Photo library access is needed to attach evidence.');
@@ -59,10 +68,30 @@ export default function ReportForm() {
       aspect: [4, 3],
       allowsEditing: true,
     });
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-      setNewImage({ uri: result.assets[0].uri, mimeType: result.assets[0].mimeType });
+    await applyPickedImage(result);
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError('Camera access is needed to take a photo.');
+      return;
     }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      aspect: [4, 3],
+      allowsEditing: true,
+    });
+    await applyPickedImage(result);
+  };
+
+  const pickImage = () => {
+    Alert.alert('Add photo', undefined, [
+      { text: 'Take Photo', onPress: takePhoto },
+      { text: 'Choose from Library', onPress: pickFromLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const onSubmit = async () => {
