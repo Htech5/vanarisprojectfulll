@@ -2,11 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ErrorState, LoadingList } from '../components/RequestState';
-import { api, resolveImageUri } from '../lib/api';
+import { api, resolveImageUri, uploadImage } from '../lib/api';
 import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
 import { useTheme } from '../lib/theme-context';
@@ -32,7 +41,8 @@ export default function ReportForm() {
   const [title, setTitle] = useState('');
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [newImage, setNewImage] = useState<{ uri: string; mimeType?: string | null } | null>(null);
+  const [newImage, setNewImage] = useState<{ uri: string; mimeType: string } | null>(null);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +67,7 @@ export default function ReportForm() {
   };
 
   const pickFromLibrary = async () => {
+    setPhotoSheetVisible(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setError('Photo library access is needed to attach evidence.');
@@ -72,6 +83,7 @@ export default function ReportForm() {
   };
 
   const takePhoto = async () => {
+    setPhotoSheetVisible(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       setError('Camera access is needed to take a photo.');
@@ -86,27 +98,14 @@ export default function ReportForm() {
     await applyPickedImage(result);
   };
 
-  const pickImage = () => {
-    Alert.alert('Add photo', undefined, [
-      { text: 'Take Photo', onPress: takePhoto },
-      { text: 'Choose from Library', onPress: pickFromLibrary },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
   const onSubmit = async () => {
     setTouched(true);
     setError(null);
     if (!canSubmit || !pin) return;
     setSubmitting(true);
     try {
-      const input = {
-        title,
-        lat: pin.latitude,
-        lng: pin.longitude,
-        imageUri: newImage?.uri ?? null,
-        imageMimeType: newImage?.mimeType,
-      };
+      const image = newImage ? await uploadImage(newImage.uri, newImage.mimeType) : undefined;
+      const input = { title, lat: pin.latitude, lng: pin.longitude, image };
       if (isEdit && id) await api.updateFireReport(id, input);
       else await api.createFireReport(input);
       router.back();
@@ -137,7 +136,7 @@ export default function ReportForm() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <Pressable style={styles.imagePicker} onPress={pickImage}>
+          <Pressable style={styles.imagePicker} onPress={() => setPhotoSheetVisible(true)}>
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.imagePreview} />
             ) : (
@@ -193,6 +192,38 @@ export default function ReportForm() {
           </Pressable>
         </ScrollView>
       )}
+
+      <Modal
+        visible={photoSheetVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoSheetVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setPhotoSheetVisible(false)}>
+          <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Add photo</Text>
+
+            <Pressable style={styles.sheetOption} onPress={takePhoto}>
+              <View style={styles.sheetIcon}>
+                <Ionicons name="camera" size={20} color={theme.accent} />
+              </View>
+              <Text style={styles.sheetOptionText}>Take Photo</Text>
+            </Pressable>
+
+            <Pressable style={styles.sheetOption} onPress={pickFromLibrary}>
+              <View style={styles.sheetIcon}>
+                <Ionicons name="images" size={20} color={theme.accent} />
+              </View>
+              <Text style={styles.sheetOptionText}>Choose from Library</Text>
+            </Pressable>
+
+            <Pressable style={styles.sheetCancel} onPress={() => setPhotoSheetVisible(false)}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -269,4 +300,57 @@ const makeStyles = (theme: Theme) =>
     },
     submitDisabled: { opacity: 0.5 },
     submitText: { fontFamily: 'Outfit_600SemiBold', fontSize: 16, color: '#ffffff' },
+    sheetBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: theme.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderBottomWidth: 0,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      gap: 4,
+    },
+    sheetHandle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+      alignSelf: 'center',
+      marginBottom: 14,
+    },
+    sheetTitle: {
+      fontFamily: 'Outfit_600SemiBold',
+      fontSize: 16,
+      color: theme.text,
+      marginBottom: 8,
+    },
+    sheetOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingVertical: 14,
+    },
+    sheetIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.accentDim,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sheetOptionText: { fontFamily: 'Outfit_500Medium', fontSize: 15, color: theme.text },
+    sheetCancel: {
+      marginTop: 8,
+      paddingVertical: 16,
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    sheetCancelText: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: theme.textDim },
   });

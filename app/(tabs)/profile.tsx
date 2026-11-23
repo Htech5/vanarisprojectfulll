@@ -6,7 +6,7 @@ import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'reac
 import { PasswordField } from '../../components/PasswordField';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { Screen } from '../../components/Screen';
-import { resolveImageUri } from '../../lib/api';
+import { resolveImageUri, uploadImage } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
 import { prepareUpload } from '../../lib/image';
 import { checkPassword } from '../../lib/password';
@@ -43,7 +43,8 @@ export default function Profile() {
     try {
       const asset = result.assets[0];
       const prepared = await prepareUpload(asset.uri, asset.width, asset.height);
-      await updateProfile({ avatarUri: prepared.uri, avatarMimeType: prepared.mimeType });
+      const url = await uploadImage(prepared.uri, prepared.mimeType);
+      await updateProfile({ avatar: url });
     } catch (err: any) {
       Alert.alert('Could not update photo', err.message ?? 'Something went wrong');
     } finally {

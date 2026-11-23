@@ -1,10 +1,8 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { authMiddleware } = require('../lib/auth');
-const { makeUploader, toDataUri } = require('../lib/upload');
 const h = require('../lib/asyncHandler');
 
-const upload = makeUploader();
 const router = express.Router();
 
 function toPublic(report) {
@@ -40,9 +38,8 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  upload.single('image'),
   h(async (req, res) => {
-    const { title, lat, lng } = req.body;
+    const { title, lat, lng, image } = req.body;
     const latNum = Number(lat);
     const lngNum = Number(lng);
     if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
@@ -55,7 +52,8 @@ router.post(
         title: title.trim(),
         lat: latNum,
         lng: lngNum,
-        image: req.file ? toDataUri(req.file) : null,
+        // image is a Vercel Blob URL the client already uploaded.
+        image: image || null,
       },
     });
     res.status(201).json(toPublic(report));
@@ -65,7 +63,6 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  upload.single('image'),
   h(async (req, res) => {
     const existing = await prisma.fireReport.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: 'Report not found' });
@@ -73,7 +70,7 @@ router.put(
       return res.status(403).json({ error: 'You can only edit your own reports' });
     }
 
-    const { title, lat, lng } = req.body;
+    const { title, lat, lng, image } = req.body;
     if (title !== undefined && !title.trim()) {
       return res.status(400).json({ error: 'Title cannot be empty' });
     }
@@ -89,7 +86,7 @@ router.put(
         title: title?.trim() ?? existing.title,
         lat: latNum,
         lng: lngNum,
-        image: req.file ? toDataUri(req.file) : existing.image,
+        image: image !== undefined ? image : existing.image,
       },
     });
     res.json(toPublic(report));

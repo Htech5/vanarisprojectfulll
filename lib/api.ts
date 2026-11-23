@@ -1,3 +1,5 @@
+import { upload } from '@vercel/blob/client';
+
 // Deployed on Vercel (see server/vercel.json) — works from any network, no
 // LAN IP / firewall / Wi-Fi client-isolation issues like a self-hosted
 // dev server would have.
@@ -13,6 +15,22 @@ export function resolveImageUri(image: string | null | undefined): string | null
 let authToken: string | null = null;
 export function setAuthToken(token: string | null) {
   authToken = token;
+}
+
+// Serverless functions (Vercel) cap the request body at ~4.5MB — routing
+// photos through our own API would break on anything but a tiny image.
+// Instead the client uploads straight to Vercel Blob (this JWT authorizes
+// the one-time upload token) and only the resulting URL ever reaches our API.
+export async function uploadImage(uri: string, mimeType: string): Promise<string> {
+  const file = await (await fetch(uri)).blob();
+  const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+  const result = await upload(`uploads/${Date.now()}.${ext}`, file, {
+    access: 'public',
+    handleUploadUrl: `${API_BASE}/blob-upload`,
+    clientPayload: authToken ?? '',
+    contentType: mimeType,
+  });
+  return result.url;
 }
 
 export type DroneStatus = 'patrolling' | 'charging' | 'standby' | 'returning';
@@ -32,8 +50,7 @@ export type DroneInput = {
   tagline: string;
   status: DroneStatus;
   badge?: string | null;
-  imageUri?: string | null;
-  imageMimeType?: string | null;
+  image?: string | null;
 };
 
 export type SpecItem = { label: string; value: string };
@@ -79,8 +96,7 @@ export type FireReportInput = {
   title: string;
   lat: number;
   lng: number;
-  imageUri?: string | null;
-  imageMimeType?: string | null;
+  image?: string | null;
 };
 
 export type User = { id: string; username: string; displayName: string; avatar: string | null };
@@ -88,8 +104,7 @@ export type AuthResponse = { token: string; user: User };
 export type ProfileInput = {
   displayName?: string;
   password?: string;
-  avatarUri?: string | null;
-  avatarMimeType?: string | null;
+  avatar?: string | null;
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -114,46 +129,6 @@ function jsonBody(data: unknown): RequestInit {
   return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
 }
 
-function appendImage(form: FormData, field: string, uri: string, mimeType?: string | null) {
-  const filename = uri.split('/').pop() ?? 'photo.jpg';
-  const ext = filename.split('.').pop()?.toLowerCase();
-  // Prefer the picker's own mimeType (expo-image-picker reports it reliably) —
-  // guessing from the filename breaks on content:// URIs that have no extension.
-  const type = mimeType || (ext === 'png' ? 'image/png' : 'image/jpeg');
-  form.append(field, {
-    uri,
-    name: filename.includes('.') ? filename : `photo.${type === 'image/png' ? 'png' : 'jpg'}`,
-    type,
-  } as unknown as Blob);
-}
-
-function droneFormData({ name, tagline, status, badge, imageUri, imageMimeType }: DroneInput): FormData {
-  const form = new FormData();
-  form.append('name', name);
-  form.append('tagline', tagline);
-  form.append('status', status);
-  form.append('badge', badge ?? '');
-  if (imageUri) appendImage(form, 'image', imageUri, imageMimeType);
-  return form;
-}
-
-function profileFormData({ displayName, password, avatarUri, avatarMimeType }: ProfileInput): FormData {
-  const form = new FormData();
-  if (displayName !== undefined) form.append('displayName', displayName);
-  if (password) form.append('password', password);
-  if (avatarUri) appendImage(form, 'avatar', avatarUri, avatarMimeType);
-  return form;
-}
-
-function fireReportFormData({ title, lat, lng, imageUri, imageMimeType }: FireReportInput): FormData {
-  const form = new FormData();
-  form.append('title', title);
-  form.append('lat', String(lat));
-  form.append('lng', String(lng));
-  if (imageUri) appendImage(form, 'image', imageUri, imageMimeType);
-  return form;
-}
-
 export const api = {
   auth: {
     register: (data: { username: string; password: string; displayName: string }) =>
@@ -162,13 +137,13 @@ export const api = {
       request<AuthResponse>('/auth/login', { method: 'POST', ...jsonBody(data) }),
     me: () => request<User>('/auth/me'),
     updateMe: (data: ProfileInput) =>
-      request<User>('/auth/me', { method: 'PUT', body: profileFormData(data) }),
+      request<User>('/auth/me', { method: 'PUT', ...jsonBody(data) }),
   },
   getDrones: () => request<Drone[]>('/drones'),
   getDrone: (id: string) => request<Drone>(`/drones/${id}`),
-  createDrone: (data: DroneInput) => request<Drone>('/drones', { method: 'POST', body: droneFormData(data) }),
+  createDrone: (data: DroneInput) => request<Drone>('/drones', { method: 'POST', ...jsonBody(data) }),
   updateDrone: (id: string, data: DroneInput) =>
-    request<Drone>(`/drones/${id}`, { method: 'PUT', body: droneFormData(data) }),
+    request<Drone>(`/drones/${id}`, { method: 'PUT', ...jsonBody(data) }),
   deleteDrone: (id: string) => request<void>(`/drones/${id}`, { method: 'DELETE' }),
   getSpecs: () => request<Spec[]>('/specs'),
   getSpec: (id: string) => request<Spec>(`/specs/${id}`),
@@ -179,8 +154,8 @@ export const api = {
   getFireReports: () => request<FireReport[]>('/fire-reports'),
   getFireReport: (id: string) => request<FireReport>(`/fire-reports/${id}`),
   createFireReport: (data: FireReportInput) =>
-    request<FireReport>('/fire-reports', { method: 'POST', body: fireReportFormData(data) }),
+    request<FireReport>('/fire-reports', { method: 'POST', ...jsonBody(data) }),
   updateFireReport: (id: string, data: FireReportInput) =>
-    request<FireReport>(`/fire-reports/${id}`, { method: 'PUT', body: fireReportFormData(data) }),
+    request<FireReport>(`/fire-reports/${id}`, { method: 'PUT', ...jsonBody(data) }),
   deleteFireReport: (id: string) => request<void>(`/fire-reports/${id}`, { method: 'DELETE' }),
 };

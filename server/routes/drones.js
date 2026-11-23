@@ -1,10 +1,8 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { authMiddleware } = require('../lib/auth');
-const { makeUploader, toDataUri } = require('../lib/upload');
 const h = require('../lib/asyncHandler');
 
-const upload = makeUploader();
 const router = express.Router();
 
 router.get(
@@ -26,9 +24,8 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  upload.single('image'),
   h(async (req, res) => {
-    const { name, tagline, status, badge } = req.body;
+    const { name, tagline, status, badge, image } = req.body;
     if (!name?.trim() || !tagline?.trim()) {
       return res.status(400).json({ error: 'Name and tagline are required' });
     }
@@ -38,7 +35,8 @@ router.post(
         tagline: tagline.trim(),
         status: status || 'standby',
         badge: badge || null,
-        image: req.file ? toDataUri(req.file) : null,
+        // image is a Vercel Blob URL the client already uploaded.
+        image: image || null,
       },
     });
     res.status(201).json(drone);
@@ -48,20 +46,17 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  upload.single('image'),
   h(async (req, res) => {
     const existing = await prisma.drone.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: 'Drone not found' });
 
-    const { name, tagline, status, badge } = req.body;
+    const { name, tagline, status, badge, image } = req.body;
     if (name !== undefined && !name.trim()) {
       return res.status(400).json({ error: 'Name cannot be empty' });
     }
     if (tagline !== undefined && !tagline.trim()) {
       return res.status(400).json({ error: 'Tagline cannot be empty' });
     }
-
-    const image = req.file ? toDataUri(req.file) : existing.image;
 
     const drone = await prisma.drone.update({
       where: { id: req.params.id },
@@ -70,7 +65,7 @@ router.put(
         tagline: tagline?.trim() ?? existing.tagline,
         status: status ?? existing.status,
         badge: badge === undefined ? existing.badge : badge || null,
-        image,
+        image: image !== undefined ? image : existing.image,
       },
     });
     res.json(drone);

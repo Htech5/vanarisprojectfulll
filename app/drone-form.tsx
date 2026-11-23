@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState, LoadingList } from '../components/RequestState';
-import { api, DroneStatus, resolveImageUri } from '../lib/api';
+import { api, DroneStatus, resolveImageUri, uploadImage } from '../lib/api';
 import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
 import { useTheme } from '../lib/theme-context';
@@ -37,8 +37,9 @@ export default function DroneForm() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   // Separate from imageUri (which also holds the resolved remote URL used
   // just for preview on edit) so an unchanged photo isn't re-uploaded as if
-  // it were a new local file.
-  const [newImage, setNewImage] = useState<{ uri: string; mimeType?: string | null } | null>(null);
+  // it were a new local file. Holds the locally compressed file until
+  // submit, when it's actually uploaded to Blob storage.
+  const [newImage, setNewImage] = useState<{ uri: string; mimeType: string } | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,14 +84,8 @@ export default function DroneForm() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input = {
-        name,
-        tagline,
-        status,
-        badge: badge || null,
-        imageUri: newImage?.uri ?? null,
-        imageMimeType: newImage?.mimeType,
-      };
+      const image = newImage ? await uploadImage(newImage.uri, newImage.mimeType) : undefined;
+      const input = { name, tagline, status, badge: badge || null, image };
       if (isEdit && id) await api.updateDrone(id, input);
       else await api.createDrone(input);
       router.back();

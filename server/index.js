@@ -7,6 +7,7 @@ const live = require('./live');
 const authRoutes = require('./routes/auth');
 const droneRoutes = require('./routes/drones');
 const fireReportRoutes = require('./routes/fire-reports');
+const blobUploadRoutes = require('./routes/blob-upload');
 
 // Last-resort safety net: a DB hiccup (Neon asleep, network blip, ...) must
 // never take the whole process down. Log it and keep serving.
@@ -26,6 +27,7 @@ app.use('/alerts', express.static(path.join(__dirname, 'public', 'alerts')));
 app.use('/api/auth', authRoutes);
 app.use('/api/drones', droneRoutes);
 app.use('/api/fire-reports', fireReportRoutes);
+app.use('/api/blob-upload', blobUploadRoutes);
 
 app.get('/api/specs', (_req, res) => res.json(specs));
 
