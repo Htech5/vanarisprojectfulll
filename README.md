@@ -1,4 +1,8 @@
-# Vanaris
+<p align="center">
+  <img src="assets/icon.png" alt="Vanaris logo" width="96" />
+</p>
+
+<h1 align="center">VANARIS</h1>
 
 **Vanaris** is a fleet-management system for aerial wildfire-suppression drones.
 It pairs a React Native (Expo) mobile app with a Node.js/Express API so a field
@@ -14,6 +18,7 @@ firefighting drones that can be dispatched and watched in real time.
 ## Table of Contents
 
 - [Overview](#overview)
+- [Screenshots](#screenshots)
 - [Core Features](#core-features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -52,6 +57,21 @@ The project is split into two independently deployable halves:
 
 - **`/` (root)** — the Expo/React Native mobile client.
 - **`/server`** — the Express + Prisma + PostgreSQL API that the app talks to.
+
+---
+
+## Screenshots
+
+> Visual mockups of the core screens, styled from the app's actual dark theme
+> tokens (`lib/theme.ts`) — not live device captures.
+
+| Home — live fleet feed | Fleet roster |
+|---|---|
+| ![Home screen](assets/screenshots/home.png) | ![Fleet roster screen](assets/screenshots/drones.png) |
+
+| Sign in | Create account |
+|---|---|
+| ![Login screen](assets/screenshots/login.png) | ![Register screen](assets/screenshots/register.png) |
 
 ---
 
