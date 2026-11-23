@@ -77,6 +77,19 @@ export function SlideToStart({ label, onComplete }: { label: string; onComplete:
         maxDrag.current = Math.max(0, w - HANDLE_SIZE - TRACK_PADDING * 2);
       }}
     >
+      <Animated.View
+        style={[
+          styles.fill,
+          { width: Animated.add(pan, HANDLE_SIZE / 2 + TRACK_PADDING) },
+        ]}
+      >
+        <LinearGradient
+          colors={['#ff8a3d', '#ff3d5e', '#b3195c']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
       <Animated.Text style={[styles.label, { opacity: trackWidth ? labelOpacity : 1 }]}>
         {label}
       </Animated.Text>
@@ -118,6 +131,14 @@ const makeStyles = () =>
       fontFamily: 'Outfit_600SemiBold',
       fontSize: 16,
       color: '#f4f4f5',
+    },
+    fill: {
+      position: 'absolute',
+      left: TRACK_PADDING,
+      top: TRACK_PADDING,
+      bottom: TRACK_PADDING,
+      borderRadius: (58 - TRACK_PADDING * 2) / 2,
+      overflow: 'hidden',
     },
     handleShadow: {
       width: HANDLE_SIZE,

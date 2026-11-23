@@ -1,5 +1,3 @@
-import { upload } from '@vercel/blob/client';
-
 // Deployed on Vercel (see server/vercel.json) — works from any network, no
 // LAN IP / firewall / Wi-Fi client-isolation issues like a self-hosted
 // dev server would have.
@@ -18,19 +16,63 @@ export function setAuthToken(token: string | null) {
 }
 
 // Serverless functions (Vercel) cap the request body at ~4.5MB — routing
-// photos through our own API would break on anything but a tiny image.
-// Instead the client uploads straight to Vercel Blob (this JWT authorizes
-// the one-time upload token) and only the resulting URL ever reaches our API.
-export async function uploadImage(uri: string, mimeType: string): Promise<string> {
-  const file = await (await fetch(uri)).blob();
-  const ext = mimeType === 'image/png' ? 'png' : 'jpg';
-  const result = await upload(`uploads/${Date.now()}.${ext}`, file, {
-    access: 'public',
-    handleUploadUrl: `${API_BASE}/blob-upload`,
-    clientPayload: authToken ?? '',
-    contentType: mimeType,
+// photos through our own API would break on anything but a tiny image, so
+// the client uploads straight to Vercel Blob instead and only the resulting
+// URL ever reaches our API.
+//
+// The official `@vercel/blob/client` package can't be used here — it pulls
+// in `@vercel/oidc` -> `jose`, which imports Node's `node:buffer` and fails
+// to bundle under Metro. This hand-rolls the same wire protocol instead
+// (reverse-engineered from the SDK's own source): get a one-time client
+// token from our server, then PUT the file straight to Blob storage with it.
+async function getBlobClientToken(pathname: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/blob-upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'blob.generate-client-token',
+      payload: { pathname, clientPayload: authToken ?? '', multipart: false },
+    }),
   });
-  return result.url;
+  if (!res.ok) throw new Error('Could not start the upload. Check your connection and try again.');
+  const { clientToken } = await res.json();
+  return clientToken;
+}
+
+// On Android, fetch(uri).blob() on a local file:// URI corrupts binary data
+// (uploads "succeed" but the photo renders solid black) — read the file as
+// base64 via expo-file-system and hand fetch raw bytes instead.
+async function readLocalFileAsBytes(uri: string): Promise<Uint8Array> {
+  const FileSystem = await import('expo-file-system/legacy');
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+  return Buffer.from(base64, 'base64');
+}
+
+export async function uploadImage(uri: string, mimeType: string): Promise<string> {
+  const file = await readLocalFileAsBytes(uri);
+  const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+  const pathname = `uploads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const clientToken = await getBlobClientToken(pathname);
+  // vercel_blob_client_<storeId>_<...> — the store id Vercel's Blob API
+  // expects as a header alongside the bearer token.
+  const storeId = clientToken.split('_')[3] ?? '';
+
+  const res = await fetch(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
+    method: 'PUT',
+    body: file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer,
+    headers: {
+      Authorization: `Bearer ${clientToken}`,
+      'x-vercel-blob-access': 'public',
+      'x-content-type': mimeType,
+      'x-vercel-blob-store-id': storeId,
+      'x-api-version': '13',
+    },
+  });
+  if (!res.ok) {
+    throw new Error('Could not upload the image. Check your connection and try again.');
+  }
+  const data = await res.json();
+  return data.url;
 }
 
 export type DroneStatus = 'patrolling' | 'charging' | 'standby' | 'returning';
