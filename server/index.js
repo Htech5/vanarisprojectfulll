@@ -2,21 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { specs } = require('./data');
-const live = require('./live');
 const authRoutes = require('./routes/auth');
 const droneRoutes = require('./routes/drones');
 const fireReportRoutes = require('./routes/fire-reports');
 const blobUploadRoutes = require('./routes/blob-upload');
+const specRoutes = require('./routes/specs');
+const telemetryRoutes = require('./routes/telemetry');
+const alertRoutes = require('./routes/alerts');
 
 // Last-resort safety net: a DB hiccup (Neon asleep, network blip, ...) must
 // never take the whole process down. Log it and keep serving.
 process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
 process.on('uncaughtException', (err) => console.error('Uncaught exception:', err));
-
-// Wraps an async route handler so a rejected promise reaches Express's
-// error middleware instead of crashing the process or hanging the request.
-const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const app = express();
 app.use(cors());
@@ -28,42 +25,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/drones', droneRoutes);
 app.use('/api/fire-reports', fireReportRoutes);
 app.use('/api/blob-upload', blobUploadRoutes);
-
-app.get('/api/specs', (_req, res) => res.json(specs));
-
-app.get('/api/specs/:id', (req, res) => {
-  const spec = specs.find((s) => s.id === req.params.id);
-  if (!spec) return res.status(404).json({ error: 'Spec not found' });
-  res.json(spec);
-});
-
-app.get(
-  '/api/telemetry',
-  h(async (_req, res) => res.json(await live.getAllTelemetry()))
-);
-
-app.get(
-  '/api/telemetry/:droneId',
-  h(async (req, res) => {
-    const telemetry = await live.getTelemetry(req.params.droneId);
-    if (!telemetry) return res.status(404).json({ error: 'Drone not found' });
-    res.json(telemetry);
-  })
-);
-
-app.get(
-  '/api/alerts',
-  h(async (_req, res) => res.json(await live.getAlerts()))
-);
-
-app.get(
-  '/api/alerts/:id',
-  h(async (req, res) => {
-    const alert = await live.getAlert(req.params.id);
-    if (!alert) return res.status(404).json({ error: 'Alert not found' });
-    res.json(alert);
-  })
-);
+app.use('/api/specs', specRoutes);
+app.use('/api/telemetry', telemetryRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // Centralized error JSON so the app can show a real message instead of a
 // generic "Request failed: 500" — in particular, a sleeping/unreachable
