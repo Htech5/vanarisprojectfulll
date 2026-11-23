@@ -32,9 +32,21 @@ yarn-error.*
 
 # local env files
 .env*.local
+server/.env
+server/*.db
+server/*.db-journal
+server/prisma/*.db
+server/prisma/*.db-journal
+server/uploads/
+server/api*.log
+server/server.log
 
 # typescript
 *.tsbuildinfo
+
+# agent instructions and local tool state, not for the public repo
+AGENTS.md
+.claude/
 
 # generated native folders
 /ios
