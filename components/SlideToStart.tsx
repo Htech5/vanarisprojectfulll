@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
 
@@ -81,9 +82,16 @@ export function SlideToStart({ label, onComplete }: { label: string; onComplete:
       </Animated.Text>
       <Animated.View
         {...panResponder.panHandlers}
-        style={[styles.handle, { transform: [{ translateX: handleTranslate }, { scale }] }]}
+        style={[styles.handleShadow, { transform: [{ translateX: handleTranslate }, { scale }] }]}
       >
-        <Ionicons name="chevron-forward" size={20} color="#0a0a0c" />
+        <LinearGradient
+          colors={['#ff8a3d', '#ff3d5e', '#b3195c']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.handle}
+        >
+          <Ionicons name="chevron-forward" size={20} color="#fff" />
+        </LinearGradient>
       </Animated.View>
     </View>
   );
@@ -111,11 +119,20 @@ const makeStyles = () =>
       fontSize: 16,
       color: '#f4f4f5',
     },
+    handleShadow: {
+      width: HANDLE_SIZE,
+      height: HANDLE_SIZE,
+      borderRadius: HANDLE_SIZE / 2,
+      shadowColor: '#ff3d5e',
+      shadowOpacity: 0.55,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 6,
+    },
     handle: {
       width: HANDLE_SIZE,
       height: HANDLE_SIZE,
       borderRadius: HANDLE_SIZE / 2,
-      backgroundColor: '#f4f4f5',
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -1,10 +1,7 @@
-// Self-hosted API (server/index.js). Point this at your computer's LAN IP
-// (run `ipconfig` on Windows, look for the Wi-Fi adapter's IPv4 address) —
-// any phone or emulator on the same Wi-Fi network can then reach it. If you
-// only ever test on the Android emulator, `adb reverse tcp:4000 tcp:4000`
-// plus HOST = 'localhost' also works and skips the Wi-Fi/firewall step.
-const HOST = '192.168.100.9';
-export const API_ORIGIN = `http://${HOST}:4000`;
+// Deployed on Vercel (see server/vercel.json) — works from any network, no
+// LAN IP / firewall / Wi-Fi client-isolation issues like a self-hosted
+// dev server would have.
+export const API_ORIGIN = 'https://vanarisbackend.vercel.app';
 export const API_BASE = `${API_ORIGIN}/api`;
 export const MODEL_URL = `${API_ORIGIN}/models/drone_firefighter.glb`;
 
@@ -36,6 +33,7 @@ export type DroneInput = {
   status: DroneStatus;
   badge?: string | null;
   imageUri?: string | null;
+  imageMimeType?: string | null;
 };
 
 export type SpecItem = { label: string; value: string };
@@ -66,9 +64,33 @@ export type FireAlert = {
   detectedAt: string;
 };
 
+export type FireReport = {
+  id: string;
+  userId: string;
+  title: string;
+  image: string | null;
+  lat: number;
+  lng: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FireReportInput = {
+  title: string;
+  lat: number;
+  lng: number;
+  imageUri?: string | null;
+  imageMimeType?: string | null;
+};
+
 export type User = { id: string; username: string; displayName: string; avatar: string | null };
 export type AuthResponse = { token: string; user: User };
-export type ProfileInput = { displayName?: string; password?: string; avatarUri?: string | null };
+export type ProfileInput = {
+  displayName?: string;
+  password?: string;
+  avatarUri?: string | null;
+  avatarMimeType?: string | null;
+};
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
@@ -92,31 +114,43 @@ function jsonBody(data: unknown): RequestInit {
   return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
 }
 
-function appendImage(form: FormData, field: string, uri: string) {
+function appendImage(form: FormData, field: string, uri: string, mimeType?: string | null) {
   const filename = uri.split('/').pop() ?? 'photo.jpg';
   const ext = filename.split('.').pop()?.toLowerCase();
+  // Prefer the picker's own mimeType (expo-image-picker reports it reliably) —
+  // guessing from the filename breaks on content:// URIs that have no extension.
+  const type = mimeType || (ext === 'png' ? 'image/png' : 'image/jpeg');
   form.append(field, {
     uri,
-    name: filename,
-    type: ext === 'png' ? 'image/png' : 'image/jpeg',
+    name: filename.includes('.') ? filename : `photo.${type === 'image/png' ? 'png' : 'jpg'}`,
+    type,
   } as unknown as Blob);
 }
 
-function droneFormData({ name, tagline, status, badge, imageUri }: DroneInput): FormData {
+function droneFormData({ name, tagline, status, badge, imageUri, imageMimeType }: DroneInput): FormData {
   const form = new FormData();
   form.append('name', name);
   form.append('tagline', tagline);
   form.append('status', status);
   form.append('badge', badge ?? '');
-  if (imageUri) appendImage(form, 'image', imageUri);
+  if (imageUri) appendImage(form, 'image', imageUri, imageMimeType);
   return form;
 }
 
-function profileFormData({ displayName, password, avatarUri }: ProfileInput): FormData {
+function profileFormData({ displayName, password, avatarUri, avatarMimeType }: ProfileInput): FormData {
   const form = new FormData();
   if (displayName !== undefined) form.append('displayName', displayName);
   if (password) form.append('password', password);
-  if (avatarUri) appendImage(form, 'avatar', avatarUri);
+  if (avatarUri) appendImage(form, 'avatar', avatarUri, avatarMimeType);
+  return form;
+}
+
+function fireReportFormData({ title, lat, lng, imageUri, imageMimeType }: FireReportInput): FormData {
+  const form = new FormData();
+  form.append('title', title);
+  form.append('lat', String(lat));
+  form.append('lng', String(lng));
+  if (imageUri) appendImage(form, 'image', imageUri, imageMimeType);
   return form;
 }
 
@@ -142,4 +176,11 @@ export const api = {
   getDroneTelemetry: (droneId: string) => request<Telemetry>(`/telemetry/${droneId}`),
   getAlerts: () => request<FireAlert[]>('/alerts'),
   getAlert: (id: string) => request<FireAlert>(`/alerts/${id}`),
+  getFireReports: () => request<FireReport[]>('/fire-reports'),
+  getFireReport: (id: string) => request<FireReport>(`/fire-reports/${id}`),
+  createFireReport: (data: FireReportInput) =>
+    request<FireReport>('/fire-reports', { method: 'POST', body: fireReportFormData(data) }),
+  updateFireReport: (id: string, data: FireReportInput) =>
+    request<FireReport>(`/fire-reports/${id}`, { method: 'PUT', body: fireReportFormData(data) }),
+  deleteFireReport: (id: string) => request<void>(`/fire-reports/${id}`, { method: 'DELETE' }),
 };

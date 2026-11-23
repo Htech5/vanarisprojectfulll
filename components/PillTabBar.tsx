@@ -9,6 +9,7 @@ import { useTheme } from '../lib/theme-context';
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   index: 'home',
   drones: 'airplane',
+  reports: 'flame',
   notifications: 'notifications',
   profile: 'person',
 };

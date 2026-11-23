@@ -89,6 +89,13 @@ The project is split into two independently deployable halves:
 - **3D drone model rendering** using `expo-gl` + `three.js` + `expo-three` to
   render a `.glb` firefighting-drone model directly inside the app.
 
+### Fire Reporting (authenticated)
+- **Community fire reports** — any signed-in user can report a sighting:
+  photo, short description, and a location dropped by tapping the map over
+  Central Kalimantan.
+- **Edit / delete own reports** — a report can only be edited or deleted by
+  the user who submitted it; everyone can view the shared report feed.
+
 ### Fleet Management (authenticated)
 - **Create / edit / delete drones** through a single reusable drone form
   (`app/drone-form.tsx`), including photo upload.
@@ -204,6 +211,8 @@ vanaris/
 │   ├── alert/[id].tsx          # Alert detail
 │   ├── drone/[id].tsx          # Drone detail + 3D model viewer
 │   ├── drone-form.tsx          # Create/edit drone form
+│   ├── report/[id].tsx         # Fire report detail + edit/delete (owner)
+│   ├── report-form.tsx         # Create/edit fire report: photo + tap-to-pin map
 │   ├── login.tsx / register.tsx
 │   ├── index.tsx               # Entry/redirect screen
 │   └── _layout.tsx             # Root layout (providers: theme, auth)
@@ -239,15 +248,18 @@ vanaris/
     ├── data.js                  # Static spec sheet data
     ├── routes/
     │   ├── auth.js               # /api/auth/* — register, login, me
-    │   └── drones.js              # /api/drones/* — CRUD
+    │   ├── drones.js              # /api/drones/* — CRUD
+    │   └── fire-reports.js        # /api/fire-reports/* — CRUD, owner-only edit/delete
     ├── lib/
     │   ├── auth.js                # JWT signing/verification, auth middleware
     │   ├── prisma.js              # Prisma client singleton
     │   └── upload.js               # multer config + data-URI helper
     ├── models/
     │   └── drone_firefighter.glb   # 3D asset served to the client
+    ├── public/
+    │   └── alerts/                 # Self-hosted wildfire photos for the alert feed
     ├── prisma/
-    │   ├── schema.prisma           # User + Drone models
+    │   ├── schema.prisma           # User + Drone + FireReport models
     │   └── seed.js
     └── vercel.json / eas.json      # Deployment config
 ```
@@ -278,6 +290,16 @@ Defined in [`server/prisma/schema.prisma`](server/prisma/schema.prisma):
 | `badge` | `String?` | Optional secondary label |
 | `image` | `String?` | Data URI of the uploaded photo |
 | `model` | `String` | Defaults to `drone_firefighter.glb`, the 3D asset filename |
+| `createdAt` / `updatedAt` | `DateTime` | |
+
+### `FireReport`
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String` (cuid) | Primary key |
+| `userId` | `String` | Reporter; `User.fireReports` relation, cascades on user delete |
+| `title` | `String` | Short description of what was spotted |
+| `image` | `String?` | Data URI of the uploaded photo |
+| `lat` / `lng` | `Float` | Map location, dropped by the reporter |
 | `createdAt` / `updatedAt` | `DateTime` | |
 
 Telemetry and alerts are **not** separate tables — they are computed on
@@ -319,6 +341,16 @@ Base path: `/api`. All request/response bodies are JSON unless noted.
 | `GET` | `/api/alerts` | Current alert feed. |
 | `GET` | `/api/alerts/:id` | A single alert, or `404`. |
 
+### Fire Reports — `/api/fire-reports`
+
+| Method | Path | Auth | Body | Description |
+|---|---|---|---|---|
+| `GET` | `/` | — | — | Lists all fire reports, newest first. |
+| `GET` | `/:id` | — | — | Fetches a single report or `404`. |
+| `POST` | `/` | Bearer token | `multipart/form-data`: `title`, `lat`, `lng`, `image?` (file) | Creates a report owned by the caller. |
+| `PUT` | `/:id` | Bearer token (owner) | `multipart/form-data`, all fields optional | Updates a report. `403` if the caller isn't the reporter. |
+| `DELETE` | `/:id` | Bearer token (owner) | — | Deletes a report. `403` if the caller isn't the reporter. Returns `204`. |
+
 ### Specs
 
 | Method | Path | Description |
@@ -349,10 +381,13 @@ rather than treat it as a permanent failure.
 | `/register` | Register | Account creation with live password strength feedback. |
 | `/(tabs)` → Home | Fleet overview | Live map, telemetry cards, recent alerts. |
 | `/(tabs)/drones` | Fleet roster | Full drone list with status badges; add/edit/delete. |
+| `/(tabs)/reports` | Fire reports | Community-submitted sightings; tap to view, add your own. |
 | `/(tabs)/notifications` | Alerts | Full alert history. |
 | `/(tabs)/profile` | Profile | Edit display name/password/avatar, toggle theme, sign out. |
 | `/drone/[id]` | Drone detail | Spec sheet + interactive 3D model viewer. |
 | `/alert/[id]` | Alert detail | Full context for a single alert. |
+| `/report/[id]` | Fire report detail | Photo, location pin, and edit/delete if you own it. |
+| `/report-form` | Report form | Create/edit a fire report: photo + tap-to-pin map location. |
 | `/drone-form` | Drone form | Shared create/edit form (image upload included). |
 
 ---

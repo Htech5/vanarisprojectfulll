@@ -31,9 +31,17 @@ type Props = {
   swayLimit?: number;
   /** Starting yaw in radians. 0 = facing straight at the camera, 0.4 (default) = isometric angle. */
   baseYaw?: number;
+  /** Backlight/rim light color (hex). Defaults to the brand red. */
+  lightColor?: number;
 };
 
-export function DroneModel({ size = 320, autoRotateSpeed = 0.35, swayLimit, baseYaw = 0.4 }: Props) {
+export function DroneModel({
+  size = 320,
+  autoRotateSpeed = 0.35,
+  swayLimit,
+  baseYaw = 0.4,
+  lightColor = 0xff3d5e,
+}: Props) {
   const BASE_YAW = baseYaw;
   const rotationY = useRef(BASE_YAW);
   const rotationX = useRef(0.1);
@@ -77,7 +85,11 @@ export function DroneModel({ size = 320, autoRotateSpeed = 0.35, swayLimit, base
   };
 
   const setupScene = async (gl: WebGLRenderingContext & { endFrameEXP: () => void }) => {
-    const renderer = new Renderer({ gl });
+    // alpha: true + a zero-alpha clear color is what actually makes the
+    // canvas transparent — without it the GL surface renders as an opaque
+    // black square behind the model instead of showing the screen's own
+    // background through it.
+    const renderer = new Renderer({ gl, alpha: true });
     renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
     renderer.setClearColor(0x000000, 0);
 
@@ -90,16 +102,22 @@ export function DroneModel({ size = 320, autoRotateSpeed = 0.35, swayLimit, base
     );
     camera.position.set(0, 0.35, 3.4);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.28));
-    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    // Backlit silhouette: minimal front fill, strong rim/underglow (color set
+    // by the caller) so the drone's body reads as a dark shape against its
+    // own glow.
+    scene.add(new THREE.AmbientLight(0xffffff, 0.08));
+    const key = new THREE.DirectionalLight(0xffffff, 0.12);
     key.position.set(2, 3, 2);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xff3d5e, 1.1);
+    const rim = new THREE.DirectionalLight(lightColor, 1.8);
     rim.position.set(-2, -1, -2);
     scene.add(rim);
-    const underglow = new THREE.PointLight(0xff3d5e, 0.9, 6);
-    underglow.position.set(0, -1.2, 1.2);
+    const underglow = new THREE.PointLight(lightColor, 2.6, 8);
+    underglow.position.set(0, -1.6, 1.0);
     scene.add(underglow);
+    const underglow2 = new THREE.PointLight(lightColor, 1.4, 6);
+    underglow2.position.set(0, -1.8, -0.6);
+    scene.add(underglow2);
 
     const buffer = await loadModelBuffer();
 

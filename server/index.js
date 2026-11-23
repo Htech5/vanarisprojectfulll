@@ -6,6 +6,7 @@ const { specs } = require('./data');
 const live = require('./live');
 const authRoutes = require('./routes/auth');
 const droneRoutes = require('./routes/drones');
+const fireReportRoutes = require('./routes/fire-reports');
 
 // Last-resort safety net: a DB hiccup (Neon asleep, network blip, ...) must
 // never take the whole process down. Log it and keep serving.
@@ -20,9 +21,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use('/models', express.static(path.join(__dirname, 'models')));
+app.use('/alerts', express.static(path.join(__dirname, 'public', 'alerts')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/drones', droneRoutes);
+app.use('/api/fire-reports', fireReportRoutes);
 
 app.get('/api/specs', (_req, res) => res.json(specs));
 

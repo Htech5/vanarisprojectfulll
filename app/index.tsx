@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,20 +41,32 @@ export default function Splash() {
         <Text style={styles.brandMark}>VANARIS</Text>
       </Animated.View>
 
+      <LinearGradient
+        colors={[theme.mode === 'dark' ? 'rgba(255,61,94,0.22)' : 'rgba(224,42,74,0.14)', 'transparent']}
+        style={styles.glow}
+        pointerEvents="none"
+      />
+
       <View style={styles.modelStage}>
-        <DroneModel size={MODEL_SIZE} autoRotateSpeed={0.5} swayLimit={0.16} baseYaw={0} />
+        <DroneModel
+          size={MODEL_SIZE}
+          autoRotateSpeed={0.5}
+          swayLimit={0.16}
+          baseYaw={0}
+          lightColor={0xffffff}
+        />
       </View>
 
       <Animated.View style={[styles.copy, { opacity: fade }]}>
-        <Text style={styles.eyebrow}>DRONE</Text>
-        <Text style={styles.headline}>SUPPRESSION{'\n'}FOR A NEW FIRELINE</Text>
+        <Text style={styles.eyebrow}>UNMANNED AERIAL SUPPRESSION</Text>
+        <Text style={styles.headline}>
+          FIRST TO THE{'\n'}
+          <Text style={styles.headlineAccent}>FIRELINE.</Text>
+        </Text>
       </Animated.View>
 
       <Animated.View style={[styles.footer, { opacity: fade, paddingBottom: insets.bottom + 24 }]}>
         <SlideToStart label="Slide to start" onComplete={handleStart} />
-        <View style={styles.progressTrack}>
-          <View style={styles.progressFill} />
-        </View>
       </Animated.View>
 
       {navigating && (
@@ -83,6 +96,14 @@ const makeStyles = (theme: Theme) =>
       letterSpacing: 5,
       color: theme.text,
     },
+    glow: {
+      position: 'absolute',
+      top: 0,
+      width: SCREEN_WIDTH * 1.6,
+      height: SCREEN_WIDTH * 1.6,
+      borderRadius: SCREEN_WIDTH * 0.8,
+      transform: [{ translateY: -SCREEN_WIDTH * 0.55 }],
+    },
     modelStage: {
       width: SCREEN_WIDTH,
       height: MODEL_SIZE * 0.62,
@@ -98,19 +119,22 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: 32,
     },
     eyebrow: {
-      fontFamily: 'Outfit_500Medium',
-      fontSize: 14,
-      letterSpacing: 2,
+      fontFamily: 'JetBrainsMono_600SemiBold',
+      fontSize: 12,
+      letterSpacing: 3,
       color: theme.accent,
-      marginBottom: 6,
+      marginBottom: 10,
     },
     headline: {
       fontFamily: 'Outfit_700Bold',
-      fontSize: 32,
-      lineHeight: 36,
-      letterSpacing: -0.5,
+      fontSize: 42,
+      lineHeight: 44,
+      letterSpacing: -1,
       color: theme.text,
       textAlign: 'left',
+    },
+    headlineAccent: {
+      color: theme.accent,
     },
     footer: {
       position: 'absolute',
@@ -119,19 +143,6 @@ const makeStyles = (theme: Theme) =>
       width: '100%',
       paddingHorizontal: 32,
       gap: 14,
-    },
-    progressTrack: {
-      width: '100%',
-      height: 3,
-      borderRadius: 2,
-      backgroundColor: theme.border,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      width: '32%',
-      height: '100%',
-      borderRadius: 2,
-      backgroundColor: theme.text,
     },
     overlay: {
       ...StyleSheet.absoluteFill,

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FireAlert } from '../lib/api';
+import { FireAlert, resolveImageUri } from '../lib/api';
 import { Theme } from '../lib/theme';
 import { useTheme } from '../lib/theme-context';
 import { timeAgo } from '../lib/time';
@@ -18,7 +18,7 @@ export function AlertRow({ alert }: { alert: FireAlert }) {
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       onPress={() => router.push(`/alert/${alert.id}`)}
     >
-      <Image source={{ uri: alert.image }} style={styles.thumb} />
+      <Image source={{ uri: resolveImageUri(alert.image) ?? undefined }} style={styles.thumb} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <View style={[styles.dot, { backgroundColor: severityColor(theme)[alert.severity] }]} />

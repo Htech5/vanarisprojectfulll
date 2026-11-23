@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState, LoadingList } from '../../components/RequestState';
-import { api, FireAlert } from '../../lib/api';
+import { api, FireAlert, resolveImageUri } from '../../lib/api';
 import { Theme } from '../../lib/theme';
 import { useTheme } from '../../lib/theme-context';
 import { timeAgo } from '../../lib/time';
@@ -44,7 +44,7 @@ export default function AlertDetail() {
 
       {alert && (
         <>
-          <Image source={{ uri: alert.image }} style={styles.image} />
+          <Image source={{ uri: resolveImageUri(alert.image) ?? undefined }} style={styles.image} />
           <View style={styles.body}>
             <Text style={styles.severity}>{SEVERITY_LABEL[alert.severity].toUpperCase()}</Text>
             <Text style={styles.title}>{alert.title}</Text>

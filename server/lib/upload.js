@@ -6,7 +6,7 @@ const multer = require('multer');
 function makeUploader() {
   return multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 8 * 1024 * 1024 },
+    limits: { fileSize: 20 * 1024 * 1024 },
   });
 }
 

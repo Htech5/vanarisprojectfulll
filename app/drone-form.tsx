@@ -34,6 +34,10 @@ export default function DroneForm() {
   const [badge, setBadge] = useState('');
   const [status, setStatus] = useState<DroneStatus>('standby');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  // Separate from imageUri (which also holds the resolved remote URL used
+  // just for preview on edit) so an unchanged photo isn't re-uploaded as if
+  // it were a new local file.
+  const [newImage, setNewImage] = useState<{ uri: string; mimeType?: string | null } | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +68,10 @@ export default function DroneForm() {
       aspect: [4, 3],
       allowsEditing: true,
     });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+      setNewImage({ uri: result.assets[0].uri, mimeType: result.assets[0].mimeType });
+    }
   };
 
   const onSubmit = async () => {
@@ -73,7 +80,14 @@ export default function DroneForm() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input = { name, tagline, status, badge: badge || null, imageUri };
+      const input = {
+        name,
+        tagline,
+        status,
+        badge: badge || null,
+        imageUri: newImage?.uri ?? null,
+        imageMimeType: newImage?.mimeType,
+      };
       if (isEdit && id) await api.updateDrone(id, input);
       else await api.createDrone(input);
       router.back();

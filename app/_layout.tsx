@@ -42,6 +42,8 @@ function Navigation() {
         <Stack.Screen name="drone/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="drone-form" options={{ presentation: 'modal' }} />
         <Stack.Screen name="alert/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="report/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="report-form" options={{ presentation: 'modal' }} />
       </Stack>
     </Animated.View>
   );

@@ -40,7 +40,10 @@ export default function Profile() {
     if (result.canceled) return;
     setAvatarUploading(true);
     try {
-      await updateProfile({ avatarUri: result.assets[0].uri });
+      await updateProfile({
+        avatarUri: result.assets[0].uri,
+        avatarMimeType: result.assets[0].mimeType,
+      });
     } catch (err: any) {
       Alert.alert('Could not update photo', err.message ?? 'Something went wrong');
     } finally {

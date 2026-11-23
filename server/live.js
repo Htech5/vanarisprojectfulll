@@ -91,21 +91,22 @@ const SEED_ALERT = {
   severity: 'moderate',
   lat: -2.198,
   lng: 113.934,
-  image: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Marking_the_Fire.jpg',
+  image: '/alerts/fire-2.jpg',
   detectedAt: new Date(Date.now() - 42 * 60 * 1000).toISOString(),
 };
 
 const ALERT_TITLES = ['Canopy Flare-Up', 'Peat Surface Hotspot', 'Smoke Plume Detected', 'Ground Fire Spread'];
-// Real wildfire photos (Wikimedia Commons, public domain) instead of
-// generic placeholder photos.
+// Self-hosted wildfire photos served from /alerts (see server/public/alerts) —
+// not hotlinked, so a rate limit or takedown on the source site can't ever
+// break the feed.
 const ALERT_IMAGES = [
-  'https://upload.wikimedia.org/wikipedia/commons/0/05/Huge_forest_fire_and_smoke.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/0/00/Wildfire_in_California.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/3/33/Trees_torching_-_High_Park_Wildfire.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/3/37/Lick_Fire_on_the_Umatilla_National_Forest_burning_at_night.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/a/a4/Marking_the_Fire.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/e/e5/Borneo_fires_and_smoke%2C_2002.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/d/de/Burned_Peatland_in_Indonesia.jpg',
+  '/alerts/fire-1.jpg',
+  '/alerts/fire-2.jpg',
+  '/alerts/fire-3.jpg',
+  '/alerts/fire-4.jpg',
+  '/alerts/fire-5.jpg',
+  '/alerts/fire-6.jpg',
+  '/alerts/fire-7.jpg',
 ];
 const FIVE_MIN_MS = 5 * 60 * 1000;
 
