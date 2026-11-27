@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PaginatedList } from '../../components/PaginatedList';
 import { Screen } from '../../components/Screen';
 import { EmptyState, ErrorState, LoadingList } from '../../components/RequestState';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -78,7 +79,7 @@ function DroneRow({ drone, onDeleted }: { drone: Drone; onDeleted: () => void })
 export default function Drones() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { data: drones, loading, error, reload } = useFetch(api.getDrones);
+  const { data: drones, loading, error, reload } = useFetch(api.getDrones, [], { reloadOnFocus: true });
 
   return (
     <Screen onRefresh={reload} refreshing={loading && drones != null}>
@@ -98,9 +99,12 @@ export default function Drones() {
         {!loading && !error && drones?.length === 0 && (
           <EmptyState icon="airplane-outline" title="No units yet" message="Add your first drone to the fleet." />
         )}
-        {drones?.map((drone) => (
-          <DroneRow key={drone.id} drone={drone} onDeleted={reload} />
-        ))}
+        {drones && (
+          <PaginatedList
+            items={drones}
+            renderItem={(drone) => <DroneRow key={drone.id} drone={drone} onDeleted={reload} />}
+          />
+        )}
       </View>
     </Screen>
   );

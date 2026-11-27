@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -15,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ErrorState, LoadingList } from '../components/RequestState';
+import { SaveSuccessModal } from '../components/SaveSuccessModal';
 import { api, resolveImageUri, uploadImage } from '../lib/api';
 import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
@@ -45,7 +47,9 @@ export default function ReportForm() {
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saving = useRef(false);
 
   useEffect(() => {
     if (existing.data) {
@@ -56,7 +60,7 @@ export default function ReportForm() {
   }, [existing.data]);
 
   const titleError = touched && !title.trim() ? 'A short title is required' : null;
-  const canSubmit = title.trim().length > 0 && pin != null && !submitting;
+  const canSubmit = title.trim().length > 0 && pin != null && !submitting && !saved;
 
   const applyPickedImage = async (result: ImagePicker.ImagePickerResult) => {
     if (result.canceled) return;
@@ -101,17 +105,20 @@ export default function ReportForm() {
   const onSubmit = async () => {
     setTouched(true);
     setError(null);
-    if (!canSubmit || !pin) return;
+    if (!canSubmit || !pin || saving.current) return;
+    saving.current = true;
+    Keyboard.dismiss();
     setSubmitting(true);
     try {
       const image = newImage ? await uploadImage(newImage.uri, newImage.mimeType) : undefined;
       const input = { title, lat: pin.latitude, lng: pin.longitude, image };
       if (isEdit && id) await api.updateFireReport(id, input);
       else await api.createFireReport(input);
-      router.back();
+      setSaved(true);
     } catch (err: any) {
       setError(err.message ?? 'Could not save report');
     } finally {
+      saving.current = false;
       setSubmitting(false);
     }
   };
@@ -183,7 +190,8 @@ export default function ReportForm() {
           </View>
 
           <Pressable
-            style={[styles.submit, (!canSubmit || submitting) && styles.submitDisabled]}
+            style={[styles.submit, !canSubmit && styles.submitDisabled]}
+            disabled={!canSubmit}
             onPress={onSubmit}
           >
             <Text style={styles.submitText}>
@@ -191,6 +199,17 @@ export default function ReportForm() {
             </Text>
           </Pressable>
         </ScrollView>
+      )}
+
+      {saved && (
+        <SaveSuccessModal
+          title={isEdit ? 'Report updated' : 'Report submitted'}
+          topInset={insets.top}
+          onClose={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/reports');
+          }}
+        />
       )}
 
       <Modal

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState, LoadingList } from '../components/RequestState';
+import { SaveSuccessModal } from '../components/SaveSuccessModal';
 import { api, DroneStatus, resolveImageUri, uploadImage } from '../lib/api';
 import { prepareUpload } from '../lib/image';
 import { Theme } from '../lib/theme';
@@ -42,7 +44,9 @@ export default function DroneForm() {
   const [newImage, setNewImage] = useState<{ uri: string; mimeType: string } | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saving = useRef(false);
 
   useEffect(() => {
     if (existing.data) {
@@ -56,7 +60,7 @@ export default function DroneForm() {
 
   const nameError = touched.name && !name.trim() ? 'Name is required' : null;
   const taglineError = touched.tagline && !tagline.trim() ? 'Tagline is required' : null;
-  const canSubmit = name.trim().length > 0 && tagline.trim().length > 0 && !submitting;
+  const canSubmit = name.trim().length > 0 && tagline.trim().length > 0 && !submitting && !saved;
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -81,17 +85,20 @@ export default function DroneForm() {
   const onSubmit = async () => {
     setTouched({ name: true, tagline: true });
     setError(null);
-    if (!canSubmit) return;
+    if (!canSubmit || saving.current) return;
+    saving.current = true;
+    Keyboard.dismiss();
     setSubmitting(true);
     try {
       const image = newImage ? await uploadImage(newImage.uri, newImage.mimeType) : undefined;
       const input = { name, tagline, status, badge: badge || null, image };
       if (isEdit && id) await api.updateDrone(id, input);
       else await api.createDrone(input);
-      router.back();
+      setSaved(true);
     } catch (err: any) {
       setError(err.message ?? 'Could not save drone');
     } finally {
+      saving.current = false;
       setSubmitting(false);
     }
   };
@@ -189,7 +196,8 @@ export default function DroneForm() {
           </View>
 
           <Pressable
-            style={[styles.submit, (!canSubmit || submitting) && styles.submitDisabled]}
+            style={[styles.submit, !canSubmit && styles.submitDisabled]}
+            disabled={!canSubmit}
             onPress={onSubmit}
           >
             <Text style={styles.submitText}>
@@ -197,6 +205,16 @@ export default function DroneForm() {
             </Text>
           </Pressable>
         </ScrollView>
+      )}
+      {saved && (
+        <SaveSuccessModal
+          title={isEdit ? 'Drone updated' : 'Drone added'}
+          topInset={insets.top}
+          onClose={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/drones');
+          }}
+        />
       )}
     </View>
   );

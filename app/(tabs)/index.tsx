@@ -13,8 +13,8 @@ import { useFetch } from '../../lib/useFetch';
 export default function Home() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const telemetry = useFetch(api.getTelemetry, [], 3000);
-  const alerts = useFetch(api.getAlerts, [], 30000);
+  const telemetry = useFetch(api.getTelemetry, [], { intervalMs: 3000 });
+  const alerts = useFetch(api.getAlerts, [], { intervalMs: 30000 });
 
   // The native map view is expensive to mount (react-native-maps); deferring
   // it until the tab-switch/navigation animation finishes keeps that

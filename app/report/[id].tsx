@@ -18,7 +18,9 @@ export default function ReportDetail() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
-  const { data: report, loading, error, reload } = useFetch(() => api.getFireReport(id), [id]);
+  const { data: report, loading, error, reload } = useFetch(() => api.getFireReport(id), [id], {
+    reloadOnFocus: true,
+  });
 
   const isOwner = report && user && report.userId === user.id;
   const imageUri = resolveImageUri(report?.image);
@@ -63,7 +65,7 @@ export default function ReportDetail() {
         )}
       </View>
 
-      {loading && (
+      {loading && !report && (
         <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
           <LoadingList rows={2} />
         </View>

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PaginatedList } from '../../components/PaginatedList';
 import { Screen } from '../../components/Screen';
 import { EmptyState, ErrorState, LoadingList } from '../../components/RequestState';
 import { api, FireReport, resolveImageUri } from '../../lib/api';
@@ -44,7 +45,7 @@ export default function Reports() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
-  const { data: reports, loading, error, reload } = useFetch(api.getFireReports);
+  const { data: reports, loading, error, reload } = useFetch(api.getFireReports, [], { reloadOnFocus: true });
 
   return (
     <Screen onRefresh={reload} refreshing={loading && reports != null}>
@@ -68,9 +69,14 @@ export default function Reports() {
             message="Be the first to report a fire sighting."
           />
         )}
-        {reports?.map((report) => (
-          <ReportRow key={report.id} report={report} mine={report.userId === user?.id} />
-        ))}
+        {reports && (
+          <PaginatedList
+            items={reports}
+            renderItem={(report) => (
+              <ReportRow key={report.id} report={report} mine={report.userId === user?.id} />
+            )}
+          />
+        )}
       </View>
     </Screen>
   );

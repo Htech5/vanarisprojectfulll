@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { AlertRow } from '../../components/AlertRow';
+import { PaginatedList } from '../../components/PaginatedList';
 import { Screen } from '../../components/Screen';
 import { EmptyState, ErrorState, LoadingList } from '../../components/RequestState';
 import { api } from '../../lib/api';
@@ -11,7 +12,10 @@ import { useFetch } from '../../lib/useFetch';
 export default function Notifications() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { data: alerts, loading, error, reload } = useFetch(api.getAlerts, [], 30000);
+  const { data: alerts, loading, error, reload } = useFetch(api.getAlerts, [], {
+    intervalMs: 30000,
+    reloadOnFocus: true,
+  });
 
   return (
     <Screen onRefresh={reload} refreshing={loading && alerts != null}>
@@ -28,9 +32,12 @@ export default function Notifications() {
             message="Fire detections from the fleet will show up here."
           />
         )}
-        {alerts?.map((alert) => (
-          <AlertRow key={alert.id} alert={alert} />
-        ))}
+        {alerts && (
+          <PaginatedList
+            items={alerts}
+            renderItem={(alert) => <AlertRow key={alert.id} alert={alert} />}
+          />
+        )}
       </View>
     </Screen>
   );
