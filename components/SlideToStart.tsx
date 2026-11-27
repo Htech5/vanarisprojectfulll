@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, PanResponder, StyleSheet, useAnimatedValue, View } from 'react-native';
 
 const HANDLE_SIZE = 50;
 const TRACK_PADDING = 4;
@@ -9,43 +9,45 @@ const TRACK_PADDING = 4;
 export function SlideToStart({ label, onComplete }: { label: string; onComplete: () => void }) {
   const styles = useMemo(() => makeStyles(), []);
   const [trackWidth, setTrackWidth] = useState(0);
-  const pan = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-  const idle = useRef(new Animated.Value(0)).current;
-  const idleLoop = useRef<Animated.CompositeAnimation | null>(null);
-  const maxDrag = useRef(0);
-  const done = useRef(false);
+  const pan = useAnimatedValue(0);
+  const scale = useAnimatedValue(1);
+  const idle = useAnimatedValue(0);
+  const [done, setDone] = useState(false);
+  const innerWidth = Math.max(0, trackWidth - TRACK_PADDING * 2);
+  const maxDrag = Math.max(0, innerWidth - HANDLE_SIZE);
 
-  useEffect(() => {
-    idleLoop.current = Animated.loop(
+  const idleLoop = useMemo(
+    () => Animated.loop(
       Animated.sequence([
         Animated.timing(idle, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(idle, { toValue: 0, duration: 500, useNativeDriver: true }),
         Animated.delay(700),
       ])
-    );
-    idleLoop.current.start();
-    return () => idleLoop.current?.stop();
-  }, [idle]);
+    ),
+    [idle]
+  );
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !done.current,
+  useEffect(() => {
+    idleLoop.start();
+    return () => idleLoop.stop();
+  }, [idleLoop]);
+
+  const panResponder = useMemo(
+    () => PanResponder.create({
+      onStartShouldSetPanResponder: () => !done,
       onPanResponderGrant: () => {
-        idleLoop.current?.stop();
+        idleLoop.stop();
         idle.setValue(0);
         Animated.spring(scale, { toValue: 0.92, useNativeDriver: true, stiffness: 400, damping: 20 }).start();
       },
       onPanResponderMove: (_evt, gesture) => {
-        const max = maxDrag.current;
-        pan.setValue(Math.max(0, Math.min(max, gesture.dx)));
+        pan.setValue(Math.max(0, Math.min(maxDrag, gesture.dx)));
       },
       onPanResponderRelease: (_evt, gesture) => {
         Animated.spring(scale, { toValue: 1, useNativeDriver: true, stiffness: 400, damping: 20 }).start();
-        const max = maxDrag.current;
-        if (max > 0 && gesture.dx > max * 0.7) {
-          done.current = true;
-          Animated.timing(pan, { toValue: max, duration: 180, useNativeDriver: true }).start();
+        if (maxDrag > 0 && gesture.dx > maxDrag * 0.7) {
+          setDone(true);
+          Animated.timing(pan, { toValue: maxDrag, duration: 180, useNativeDriver: true }).start();
           onComplete();
         } else {
           Animated.spring(pan, {
@@ -54,33 +56,33 @@ export function SlideToStart({ label, onComplete }: { label: string; onComplete:
             stiffness: 260,
             damping: 20,
             mass: 0.6,
-          }).start(() => idleLoop.current?.start());
+          }).start(({ finished }) => {
+            if (finished) idleLoop.start();
+          });
         }
       },
-    })
-  ).current;
+    }),
+    [done, idle, idleLoop, maxDrag, onComplete, pan, scale]
+  );
 
   const labelOpacity = pan.interpolate({
-    inputRange: [0, Math.max(1, maxDrag.current * 0.6)],
+    inputRange: [0, Math.max(1, maxDrag * 0.6)],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   const handleTranslate = Animated.add(pan, idle.interpolate({ inputRange: [0, 1], outputRange: [0, 10] }));
+  const fillScale = Animated.divide(Animated.add(pan, HANDLE_SIZE / 2), Math.max(1, innerWidth));
 
   return (
     <View
       style={styles.track}
-      onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
-        setTrackWidth(w);
-        maxDrag.current = Math.max(0, w - HANDLE_SIZE - TRACK_PADDING * 2);
-      }}
+      onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
     >
       <Animated.View
         style={[
           styles.fill,
-          { width: Animated.add(pan, HANDLE_SIZE / 2 + TRACK_PADDING) },
+          { opacity: trackWidth ? 1 : 0, transform: [{ scaleX: fillScale }] },
         ]}
       >
         <LinearGradient
@@ -135,8 +137,10 @@ const makeStyles = () =>
     fill: {
       position: 'absolute',
       left: TRACK_PADDING,
+      right: TRACK_PADDING,
       top: TRACK_PADDING,
       bottom: TRACK_PADDING,
+      transformOrigin: 'left center',
       borderRadius: (58 - TRACK_PADDING * 2) / 2,
       overflow: 'hidden',
     },

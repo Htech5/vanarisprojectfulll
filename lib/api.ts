@@ -1,3 +1,6 @@
+import { File } from 'expo-file-system';
+import { fetch as expoFetch } from 'expo/fetch';
+
 // Deployed on Vercel (see server/vercel.json) — works from any network, no
 // LAN IP / firewall / Wi-Fi client-isolation issues like a self-hosted
 // dev server would have.
@@ -39,17 +42,7 @@ async function getBlobClientToken(pathname: string): Promise<string> {
   return clientToken;
 }
 
-// On Android, fetch(uri).blob() on a local file:// URI corrupts binary data
-// (uploads "succeed" but the photo renders solid black) — read the file as
-// base64 via expo-file-system and hand fetch raw bytes instead.
-async function readLocalFileAsBytes(uri: string): Promise<Uint8Array> {
-  const FileSystem = await import('expo-file-system/legacy');
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-  return Buffer.from(base64, 'base64');
-}
-
 export async function uploadImage(uri: string, mimeType: string): Promise<string> {
-  const file = await readLocalFileAsBytes(uri);
   const ext = mimeType === 'image/png' ? 'png' : 'jpg';
   const pathname = `uploads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const clientToken = await getBlobClientToken(pathname);
@@ -57,9 +50,9 @@ export async function uploadImage(uri: string, mimeType: string): Promise<string
   // expects as a header alongside the bearer token.
   const storeId = clientToken.split('_')[3] ?? '';
 
-  const res = await fetch(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
+  const res = await expoFetch(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
     method: 'PUT',
-    body: file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer,
+    body: new File(uri),
     headers: {
       Authorization: `Bearer ${clientToken}`,
       'x-vercel-blob-access': 'public',
